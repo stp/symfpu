@@ -188,8 +188,14 @@ namespace symfpu {
 
       if (formatSignificandWidth <= 3) {
 	// Subnormals fit into the gap between minimum normal exponent and what is represenatble
-	// using a signed number
-	return formatExponentWidth;
+	// using a signed number, so the format's own width is wide enough for them.
+	// It is still one bit too narrow for unpack(), which extends the packed
+	// exponent into this width and so requires INVARIANT(unpackedExWidth >
+	// exWidth) strictly, to avoid overflowing the sign. Returning the format
+	// width made every format with three or fewer significand bits abort on
+	// that invariant. The headroom bit costs nothing and satisfies both:
+	// 2^((e+1)-1) >= 2^(e-1) + (s-3) holds for all s <= 3.
+	return formatExponentWidth + 1;
       }
 
       bwt bitsNeededForSubnormals = bitsToRepresent(format.significandWidth() - 3);
