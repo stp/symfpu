@@ -97,7 +97,18 @@ namespace symfpu {
    //  for a,b to be negative you need that the exponents are equal or 1 apart
    //  for a,b to be +1 you need that the exponent of the lower one is within the length of the longest possible sets of leading 1's in a product.
    // This is a conservative choice of invariant
-   INVARIANT(additionResult.wellFormed(multiplyResultExponentLowerBound.matchWidth(additionResult.getExponent()), multiplyResultExponentUpperBound.matchWidth(additionResult.getExponent())));
+   //
+   // ... except at the top. The arithmetic add is computed on the extended
+   // product and an addend that convertFloatToFloat has not yet given its
+   // special-case meaning: a zero addend arrives as the value its default
+   // fields spell (1.0), and a finite one may carry the sum into the next
+   // binade. So a product at exponent 2x+1 can leave here at 2x+2 -- for
+   // (3, 9), (-max) * (-max) + 0 does -- and the addition special cases
+   // below then replace that sum by the rounded product. The value is right;
+   // the bound was one short. The literal backend checks INVARIANT and
+   // aborted on exactly those operands; the symbolic one drops it.
+   sbv additionResultExponentUpperBound(multiplyResultExponentUpperBound.matchWidth(additionResult.getExponent()).increment());
+   INVARIANT(additionResult.wellFormed(multiplyResultExponentLowerBound.matchWidth(additionResult.getExponent()), additionResultExponentUpperBound));
 
 
    /* Then round */
