@@ -168,11 +168,25 @@ unpackedFloat<t> roundToIntegral (const typename t::fpt &format,
 				 roundedResult.significand);
 					    
   
+  // Rounding up out of the top binade is an integer the format has no
+  // finite for. Only formats whose exponent range is narrower than their
+  // significand have such an integer -- there the largest finite is not
+  // integral -- and there the reconstructed exponent is one past the
+  // largest normal's, which is no valid unpacked float and packs, by the
+  // accident of its bits, to an infinity. Make it one on purpose: the real
+  // that integer is overflows the format, and the modes that got here
+  // rounded away from zero, so it is the infinity of the input's sign. The
+  // symbolic and literal back-ends then agree, and the literal one's
+  // postcondition below holds.
+  prop overflowed(reconstructed.getExponent() >
+		  unpackedFloat<t>::maxNormalExponent(format));
   unpackedFloat<t> result(ITE(isID,
 			      input,
 			      ITE(roundedResult.significand.isAllZeros(),
 				  unpackedFloat<t>::makeZero(format, input.getSign()),
-				  reconstructed)));
+				  ITE(overflowed,
+				      unpackedFloat<t>::makeInf(format, input.getSign()),
+				      reconstructed))));
 
   POSTCONDITION(result.valid(format));
   
