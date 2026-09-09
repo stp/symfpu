@@ -115,7 +115,16 @@ unpackedFloat<t> roundToIntegral (const typename t::fpt &format,
   bwt exponentWidth(exponent.getWidth());
   
   sbv packedSigWidth(exponentWidth, format.packedSignificandWidth());
-  sbv unpackedSigWidth(exponentWidth, format.significandWidth());
+  // The unpacked width is compared, one bit wider, against a rounding point
+  // that expandingSubtract has already widened; build it at that width
+  // directly. Built at exponentWidth it wraps for the narrow formats where
+  // the unpacked exponent is exactly as wide as the significand needs --
+  // eb 2 with sb a power of two, where bitsToRepresent(sb - 1) + 1 bits
+  // hold sb - 1 but not sb. At (2, 4) the width is 3 and sb = 4 became -4,
+  // so the collar below clamped every rounding point to zero and 1.0
+  // rounded to +0; (2, 8) and (2, 16) fail the same way. Same defect as the
+  // subnormal-amount bound in unpackedFloat::valid, fixed there earlier.
+  sbv unpackedSigWidth(exponentWidth + 1, format.significandWidth());
   
   // Fast path for things that must be integral
   prop isIntegral(exponent >= packedSigWidth);
@@ -129,7 +138,7 @@ unpackedFloat<t> roundToIntegral (const typename t::fpt &format,
   sbv initialRoundingPoint(expandingSubtract<t>(packedSigWidth,exponent));  // Expansion only needed in obscure formats
   sbv collaredRoundingPoint(collar<t>(initialRoundingPoint,
 				      sbv::zero(exponentWidth + 1),
-				      unpackedSigWidth.extend(1).increment()));
+				      unpackedSigWidth.increment()));
 
   // Round
   ubv significand(input.getSignificand());
